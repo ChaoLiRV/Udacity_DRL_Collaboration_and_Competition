@@ -9,15 +9,18 @@ import torch.optim as optim
 
 from model import Actor, Critic
 ## Param choice refer to https://medium.com/@amitpatel.gt/maddpg-91caa221d75e
-BUFFER_SIZE = int(1e5)
+BUFFER_SIZE = int(1e6)
 BATCH_SIZE = 256
 GAMMA = 0.99
-TAU = 1e-3
+TAU = 6e-2
 LR_ACTOR = 1e-4
 LR_CRITIC = 3e-4 # faster learning for critic than actor
 WEIGHT_DECAY = 1.e-5
 UPDATE_FREQUENCY = 2 #
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+eps_start = 6           # Noise level start
+eps_end = 0             # Noise level end
+eps_decay = 250         # Number of episodes to decay over from start to end
 
 class Agent():
     def __init__(self, state_size, action_size, num_agents, seed):
@@ -33,6 +36,7 @@ class Agent():
         self.state_size = state_size   # 24
         self.action_size = action_size # 2
         self.num_agents = num_agents   # 2
+        self.eps = eps_start
 
         #Actor Network: State -> Action
         self.actor_local = Actor(state_size, action_size, seed).to(device)
@@ -50,7 +54,7 @@ class Agent():
         # Replay memory
         self.memory = ReplayBuffer(BUFFER_SIZE, BATCH_SIZE, seed)
 
-    def act(self, state, add_noise = True):
+    def act(self, state, add_noise):
         """Returns actions for given state as per current policy."""
         state = torch.from_numpy(state).float().to(device)
         self.actor_local.eval() # set module to evaluation mode
@@ -59,7 +63,7 @@ class Agent():
         self.actor_local.train() # reset it back to training mode
 
         if add_noise:
-            action += self.noise.sample()
+            action += self.noise.sample()*self.eps
 
         return np.clip(action, -1, 1) # restrict the output boundary -1, 1
 
@@ -107,10 +111,7 @@ class Agent():
         Q_target_next = self.critic_target.forward(next_states, next_acitons) # critic by both agent's obs and actions
         Q_target = rewards + gamma * Q_target_next * (1-dones)
         Q_local = self.critic_local.forward(states, actions)
-        # critic_loss = F.mse_loss(Q_local, Q_target)
-
-        huber_loss = torch.nn.SmoothL1Loss()
-        critic_loss = huber_loss(Q_local, Q_target)
+        critic_loss = F.mse_loss(Q_local, Q_target)
 
         # Minimize the loss
         self.critic_optimizer.zero_grad()
@@ -140,7 +141,10 @@ class Agent():
         self.updateWeight_target(self.critic_local, self.critic_target, TAU)
         self.updateWeight_target(self.actor_local, self.actor_target, TAU)
 
-
+        # Update epsilon noise value
+        self.eps = self.eps - (1/eps_decay)
+        if self.eps < eps_end:
+            self.eps=eps_end
 
     def updateWeight_target(self, local_model, target_model, tau):
         """Soft update TARGET model parameters.
