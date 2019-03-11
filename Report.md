@@ -18,7 +18,7 @@ The algorithm details are described in this [paper](https://github.com/ChaoLiRV/
 _**actor network:**_ It takes the state observation as input and returns the action as the output. The neural network has two hidden layers with 256 and 128 nodes. Both layers use _ReLU_ activation function that performs better than
 _leaky_ReLU_ in terms of learning efficiency. The output layer uses _tanh_ as activation function
 
-_**critic network:**_ Similar architecture as actor network, except that it takes both state observation and action as input and return the scaler (_Q_ value) as the output.
+_**critic network:**_ Similar architecture as actor network, except that it takes both state observation and action as input and return the scalar (_Q_ value) as the output.
 The state input happens at the input layer, and then the output of the first hidden layer is concatenated with the action to feed the second hidden layer.
 
 In the algorithm, there're two MADDPG agent instances interacting with the environment to learn their own actor and critic.
@@ -29,6 +29,7 @@ The noise level start at a high level _6_ and decay to _0_ with _1/256_ episode 
 
 ### Score plot
 The environment is solved at **1126** episodes. Refer to the plot below to see how the average scores evolve as a function of episodes.
+
 ![score plot](https://github.com/ChaoLiRV/Udacity_DRL_Collaboration_and_Competition/blob/master/scores.png)  
 
 ### Future work
