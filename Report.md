@@ -1,55 +1,38 @@
-[//]: # (Image References)
-
-[image1]: https://user-images.githubusercontent.com/10624937/42135623-e770e354-7d12-11e8-998d-29fc74429ca2.gif "Trained Agent"
-[image2]: https://user-images.githubusercontent.com/10624937/42135622-e55fb586-7d12-11e8-8a54-3c31da15a90a.gif "Soccer"
 
 
 # Project 3: Collaboration and Competition
 
-![Trained Agent][image1]
+### MADDPG
 
-### Overview
+In the excise of project2, we learn how to use DDPG algorithm to solve the continuous control task. To faciliate the learning process, 
+a multi-agent environment is used to collect the experience data (state, action, reward, next_state, done) which are then added to replay buffer. 
+Note the data collection process here are done in a parallel manner as each agent is learning to solve the task independently. 
+In contrast, the MADDPG is a variant of DDPG algorithm where the agents are no longer working independently but collaborate under certain situations 
+(e.g. don't let the ball hit the ground) and compete under other situations (e.g. collect as many points as possible).
 
-This is the 3rd project for the Udacity Deep Reinforcement Learning Nanodegree program. The goal of this project is to use deep neural network to solve a multi-agent task, in a collaborative or competitive manner. For this project, the [Tennis](https://github.com/Unity-Technologies/ml-agents/blob/master/docs/Learning-Environment-Examples.md#tennis) environment is utilized.
+To achieve this goal, all agents still train their own actor (_policy gradient_) network using their own observations,
+whereas share the critic (_Q-value_ network) training process, i.e., to train the critic network using all agent's observations and actions.
+The algorithm details are described in this [paper](https://github.com/ChaoLiRV/Udacity_DRL_Collaboration_and_Competition/blob/master/MADDPG_paper.pdf)
+ 
+### Implementation details
+_**actor network:**_ It takes the state observation as input and returns the action as the output. The neural network has two hidden layers with 256 and 128 nodes. Both layers use _ReLU_ activation function that performs better than
+_leaky_ReLU_ in terms of learning efficiency. The output layer uses _tanh_ as activation function
 
-In this environment, two agents control rackets to bounce a ball over a net. If an agent hits the ball over the net, it receives a reward of +0.1.  If an agent lets a ball hit the ground or hits the ball out of bounds, it receives a reward of -0.01.  Thus, the goal of each agent is to keep the ball in play.
+_**critic network:**_ Similar architecture as actor network, except that it takes both state observation and action as input and return the scaler (_Q_ value) as the output.
+The state input happens at the input layer, and then the output of the first hidden layer is concatenated with the action to feed the second hidden layer.
 
-The observation space consists of 24 dimensions corresponding to the position and velocity of the ball and racket. Each agent receives its own, local observation.  Two continuous actions are available, corresponding to movement toward (or away from) the net, and jumping. 
+In the algorithm, there're two MADDPG agent instances interacting with the environment to learn their own actor and critic.
+Both agents add their experience to the shared replay buffer with size _1e+6_. The learning process is in a batch manner with _256 batchsize_ at every other time step.
+The reward discount _gamma_ is _0.99_ and soft update parameter _TAU_ for the target network is _6e-2_. Need experiments to determine this value in order to strike the balance between the learning speed and stability. 
+The learning rate for actor is _1e-4_, whereas for critic it is _3e-4_ for fast learning as the critic is the basis for actor training. The noise added to action is sampled from standard normal distribution.
+The noise level start at a high level _6_ and decay to _0_ with _1/256_ episode rate. 
 
-The task is episodic, and in order to solve the environment, your agents must get an average score of +0.5 (over 100 consecutive episodes, after taking the maximum over both agents). Specifically,
+### Score plot
+The environment is solved at **1126** episodes. Refer to the plot below to see how the average scores evolve as a function of episodes.
+![score plot](https://github.com/ChaoLiRV/Udacity_DRL_Collaboration_and_Competition/blob/master/scores.png)  
 
-- After each episode, we add up the rewards that each agent received (without discounting), to get a score for each agent. This yields 2 (potentially different) scores. We then take the maximum of these 2 scores.
-- This yields a single **score** for each episode.
-
-The environment is solved at **1126** episodes with the code attached, when the average (over 100 episodes) of those **scores** is at least +0.5.
-
-### File Instruction
-_**Tennis.ipynb**_: This is the python jupyter notebook file which performs the followings:
-1. Start the environment and examine the state and action space
-2. Take random actions in the environement to become familar with the environment API
-3. Train the agent using deep neural network to solve the environement
-
-_**agent.py**_: The python code to implement the [Multi-agent deep deterministic policy agent (MADDPG) algorithm](https://arxiv.org/pdf/1706.02275.pdf). The MADDPG is a multi-agent variant of DDPG, a model-free, off-policy, policy gradient-based algorithm. Each agent has its own actor but share the critic.	
-
-_**model.py**_: The python code to configure the neural network for both actor and critic.
-
-_**checkpoint_actor|critic_agent0|1.pth**_: Both agents' actor and critic model weights are saved in the checkpoint file
-
-### Requirements
-1. Install Anaconda distribution of python3
-
-2. Install PyTorch, Jupyter Notebook in the Python3 environment
-
-3. Download the environment from one of the links below and place it in the same directory folder. Only select the environment that matches the operating system:
-- Linux: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux.zip)
-- Mac OSX: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis.app.zip)
-- Windows (32-bit): [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Windows_x86.zip)
-- Windows (64-bit): [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Windows_x86_64.zip)
-
-(_For Windows users_) Check out [this link](https://support.microsoft.com/en-us/help/827218/how-to-determine-whether-a-computer-is-running-a-32-bit-version-or-64) if you need help with determining if your computer is running a 32-bit version or 64-bit version of the Windows operating system.
-
-(_For AWS_) If you'd like to train the agent on AWS (and have not [enabled a virtual screen](https://github.com/Unity-Technologies/ml-agents/blob/master/docs/Training-on-Amazon-Web-Service.md)), then please use [this link](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P3/Tennis/Tennis_Linux_NoVis.zip) to obtain the "headless" version of the environment.  You will **not** be able to watch the agent without enabling a virtual screen, but you will be able to train the agent.  (_To watch the agent, you should follow the instructions to [enable a virtual screen](https://github.com/Unity-Technologies/ml-agents/blob/master/docs/Training-on-Amazon-Web-Service.md), and then download the environment for the **Linux** operating system above._)
-
-4. Open Jupyter Notebook and run the Tennis.ipynb file to train the agent. 
-
-5. To watch the agents to play tennis, load the model weights from the 4 checkpiont files by executing all the notebook cells except **Training** session.
+### Future work
+Prioritized Experience replay can be implemented to faciliate the learning process, as the learning focuses on more important experiences.
+Also, it is observed that the learning process is unstable. From the score plot above, we see the score goes up and then drop around 900 episodes. 
+Even the environment is solved at 1126 episode, but the score is still not guaranteed to stay above +0.5 if running more episodes.
+Will try implement A2C and A3C to the model and compare the performance of different algorithms. 
